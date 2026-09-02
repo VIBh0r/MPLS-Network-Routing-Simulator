@@ -1,9 +1,6 @@
 MPLS Label Forwarding Simulation
 ================================
 
-Name: [ADD YOUR NAME HERE]
-ID:   [ADD YOUR STUDENT ID HERE]
-
 How to Compile
 ---------------
 g++ -std=c++11 -O2 -o mpls mpls_simulation.cpp
