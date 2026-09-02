@@ -18,11 +18,14 @@ This lab simulates Multiprotocol Label Switching (MPLS), a forwarding mechanism 
 Comprehensive MPLS simulation implementation.
 
 **Key Components:**
-- Router network representation
-- Label management system
-- Label Distribution Protocol (LDP) simulation
-- Path computation and label allocation
-- Forwarding table management
+- Router network representation (Task 1)
+- Dijkstra-based routing table / RIB computation (Task 2)
+- A single Forwarding Equivalence Class, "R0 -> R3" (Task 3)
+- Label Forwarding Information Base (LFIB) built from the Task 2 RIB (Task 4)
+- Recursive packet-forwarding simulation with push/swap/pop (Task 5)
+
+Note: label *distribution* (LDP neighbor discovery and label negotiation) is
+not simulated, per the assignment spec — only the resulting LFIB tables are.
 
 ## MPLS Concepts
 
@@ -149,9 +152,12 @@ DIJKSTRA(Graph G, Vertex s):
 3. Store in global routing table
 
 ### Label Allocation
-1. LDP discovers neighbors via hello messages
-2. Allocates labels for each prefix
-3. Creates LSP mappings
+In a real network this is done by LDP: the egress router allocates a label and
+advertises it upstream, each router in turn allocates its own label and
+advertises further upstream, building the LSP hop by hop. This simulation does
+not run that negotiation — `setup_lfib()` in the code directly encodes the
+resulting labels (300, 777) that this process would have produced, per the
+assignment spec.
 
 ### Forwarding Process
 1. Ingress router: Add label based on destination
@@ -166,9 +172,6 @@ g++ -std=c++11 -O2 -o mpls mpls_simulation.cpp
 
 # Or with clang
 clang++ -std=c++11 -O2 -o mpls mpls_simulation.cpp
-
-# With verbose output
-g++ -std=c++11 -DDEBUG -o mpls mpls_simulation.cpp
 ```
 
 ## Execution
@@ -183,57 +186,55 @@ g++ -std=c++11 -DDEBUG -o mpls mpls_simulation.cpp
 
 ## Expected Output
 
-### Global Routing Information Base (GLOBAL_RIB)
+This is the actual console output produced by `mpls_simulation.cpp` (also saved
+in `output.txt`):
 
 ```
-=== MPLS Network Simulation ===
+--- Task 2: Routing Information Base (RIB) Computation ---
 
-Global Routing Information Base:
-Router 0:
-  Destination R0: Next Hop=-1, Cost=0 (Direct)
-  Destination R1: Next Hop=1, Cost=10
-  Destination R2: Next Hop=2, Cost=20
-  Destination R3: Next Hop=1, Cost=30
+Routing Table for Router R0:
+Destination | Next Hop | Total Cost
+------------------------------------
+ R1 | R1 | 10
+ R2 | R2 | 20
+ R3 | R2 | 30
 
-Router 1:
-  Destination R0: Next Hop=0, Cost=10
-  Destination R1: Next Hop=-1, Cost=0 (Direct)
-  Destination R2: Next Hop=3, Cost=30
-  Destination R3: Next Hop=3, Cost=20
+Routing Table for Router R1:
+Destination | Next Hop | Total Cost
+------------------------------------
+ R0 | R0 | 10
+ R2 | R3 | 30
+ R3 | R3 | 20
 
-Router 2:
-  Destination R0: Next Hop=0, Cost=20
-  Destination R1: Next Hop=3, Cost=30
-  Destination R2: Next Hop=-1, Cost=0 (Direct)
-  Destination R3: Next Hop=3, Cost=10
+Routing Table for Router R2:
+Destination | Next Hop | Total Cost
+------------------------------------
+ R0 | R0 | 20
+ R1 | R0 | 30
+ R3 | R3 | 10
 
-Router 3:
-  Destination R0: Next Hop=1, Cost=30
-  Destination R1: Next Hop=1, Cost=20
-  Destination R2: Next Hop=2, Cost=10
-  Destination R3: Next Hop=-1, Cost=0 (Direct)
+Routing Table for Router R3:
+Destination | Next Hop | Total Cost
+------------------------------------
+ R0 | R1 | 30
+ R1 | R1 | 20
+ R2 | R2 | 10
+
+--- Task 5: MPLS Packet Forwarding Simulation ---
+
+Simulating packet from R0 to R3...
+[R0] Packet for R3 (FEC: R0->R3). Pushing Label 300. Sending to R2.
+[R2] Received packet with In-Label 300. Swapping for Out-Label 777. Sending to R3.
+[R3] Received packet with In-Label 777. Popping label. Packet delivered.
 ```
 
-### Shortest Paths
-
-```
-Shortest Paths:
-R0 → R1: 10 (Direct)
-R0 → R2: 20 (Direct)
-R0 → R3: 30 (R0→R1→R3)
-
-R1 → R0: 10 (Direct)
-R1 → R2: 30 (R1→R3→R2)
-R1 → R3: 20 (Direct)
-
-R2 → R0: 20 (Direct)
-R2 → R1: 30 (R2→R3→R1)
-R2 → R3: 10 (Direct)
-
-R3 → R0: 30 (R3→R1→R0)
-R3 → R1: 20 (Direct)
-R3 → R2: 10 (Direct)
-```
+Note the `R0 -> R3` route: its cost (30) ties with the alternate path
+`R0->R1->R3` (10+20=30). Dijkstra's relaxation step in this implementation
+breaks ties in favor of the later-processed neighbor, so R0's RIB reports next
+hop `R2` — matching the `R0 -> R2 -> R3` path the assignment specifies for
+Task 4/5. Task 4's LFIB reads this next hop directly from the Task 2 RIB
+(`GLOBAL_RIB[0][3].next_hop`) rather than hardcoding it, so the two tasks stay
+consistent by construction.
 
 ## Key Concepts
 
@@ -263,19 +264,19 @@ R3 → R2: 10 (Direct)
 4. **Fast Rerouting**: Quick backup path activation
 5. **QoS Implementation**: Service-level guarantees
 
-## Simulation Scenarios
+## What This Simulation Does — and Doesn't — Cover
 
-### Scenario 1: Single Source Routing
-Compute and display LSPs from single source to all destinations
+Implemented, matching the assignment exactly:
+- RIB computation from every router via Dijkstra (Task 2)
+- One FEC, `R0 -> R3`, with its LFIB built along the `R0 -> R2 -> R3` LSP (Tasks 3-4)
+- A single packet forwarded end-to-end with push/swap/pop, printed hop-by-hop (Task 5)
 
-### Scenario 2: Multi-destination Routing
-Show different paths for different destinations through network
-
-### Scenario 3: Load Balancing
-Distribute traffic across multiple paths
-
-### Scenario 4: Link Failure Recovery
-Reroute traffic when link fails
+Not implemented (not required by the assignment; listed under Extensions
+below if you want to take it further):
+- Load balancing / equal-cost multi-path (ECMP) traffic distribution
+- Link-failure detection and LSP rerouting
+- A generic FEC/LFIB engine for arbitrary source-destination pairs — the
+  forwarding function only handles the router hops used by this one FEC
 
 ## Experiments to Try
 
@@ -325,4 +326,4 @@ Reroute traffic when link fails
 
 ---
 
-**Last Updated**: May 2026
+**Last Updated**: September 2026

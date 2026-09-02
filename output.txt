@@ -1,0 +1,37 @@
+--- Task 2: Routing Information Base (RIB) Computation ---
+
+Routing Table for Router R0:
+Destination | Next Hop | Total Cost
+------------------------------------
+ R1 | R1 | 10
+ R2 | R2 | 20
+ R3 | R2 | 30
+
+Routing Table for Router R1:
+Destination | Next Hop | Total Cost
+------------------------------------
+ R0 | R0 | 10
+ R2 | R3 | 30
+ R3 | R3 | 20
+
+Routing Table for Router R2:
+Destination | Next Hop | Total Cost
+------------------------------------
+ R0 | R0 | 20
+ R1 | R0 | 30
+ R3 | R3 | 10
+
+Routing Table for Router R3:
+Destination | Next Hop | Total Cost
+------------------------------------
+ R0 | R1 | 30
+ R1 | R1 | 20
+ R2 | R2 | 10
+
+--- Task 5: MPLS Packet Forwarding Simulation ---
+
+Simulating packet from R0 to R3...
+[R0] Packet for R3 (FEC: R0->R3). Pushing Label 300. Sending to R2.
+[R2] Received packet with In-Label 300. Swapping for Out-Label 777. Sending to R3.
+[R3] Received packet with In-Label 777. Popping label. Packet delivered.
+
